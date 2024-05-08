@@ -1,8 +1,8 @@
-const { mouse, keyboard, Key, screen } = require("@nut-tree/nut-js");
 const dialog = require("dialog-node");
+const executeCommand = require("./command.js");
 
-keyboard.config.autoDelayMs = 0.1;
 let running = true;
+let pressed = false;
 
 dialog.question("Start", "Edge ScrollOver", 0, start);
 
@@ -19,19 +19,24 @@ function stop() {
 }
 
 async function main() {
-  const screenWidth = await screen.width();
-  const screenHeight = await screen.height();
+  const screenWidth = 1366;
+  const screenHeight = 768;
   dialog.info("Stop", "Edge Flipper", 0, stop);
 
   while (true) {
     if (!running) break;
 
     await sleep(0.1);
-    const mousePosition = await mouse.getPosition();
-    const posX = mousePosition.x;
-    const posY = mousePosition.y;
+
+    const posX = +(await executeCommand(
+      `xdotool getmouselocation --shell | grep X | cut -d "=" -f2`
+    ));
+    const posY = +(await executeCommand(
+      `xdotool getmouselocation --shell | grep Y | cut -d "=" -f2`
+    ));
+
     const percentageX = Math.round(
-      100 - ((screenWidth - posX) / screenWidth) * 100
+      100 - ((screenWidth - posX) / screenHeight) * 100
     );
     const percentageY = Math.round(
       100 - ((screenHeight - posY) / screenHeight) * 100
@@ -39,31 +44,33 @@ async function main() {
 
     let pressedKey = null;
     if (percentageX >= 99) {
-      pressedKey = "D";
+      pressedKey = "d";
     }
     if (percentageX <= 1) {
-      pressedKey = "A";
+      pressedKey = "a";
     }
     if (percentageY >= 99) {
-      pressedKey = "S";
+      pressedKey = "s";
     }
     if (percentageY <= 1) {
-      pressedKey = "W";
+      pressedKey = "w";
     }
 
-    if (pressedKey) {
+    if (pressedKey && !pressed) {
       await pressKey(pressedKey);
+      pressed = true;
     } else {
-      await keyboard.releaseKey(Key.W);
-      await keyboard.releaseKey(Key.S);
-      await keyboard.releaseKey(Key.A);
-      await keyboard.releaseKey(Key.D);
+      await executeCommand(`xdotool keyup --clearmodifiers a`);
+      await executeCommand(`xdotool keyup --clearmodifiers w`);
+      await executeCommand(`xdotool keyup --clearmodifiers s`);
+      await executeCommand(`xdotool keyup --clearmodifiers d`);
+      pressed = false;
     }
   }
 }
 
 async function pressKey(key) {
-  await keyboard.pressKey(Key[key]);
+  await executeCommand(`xdotool keydown ${key}`);
 }
 
 function sleep(n) {
